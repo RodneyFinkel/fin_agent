@@ -6,11 +6,7 @@ from fin_tool_last import MarketDataPipelineTool
 
 
 class StockDataService:
-    def __init__(
-        self,
-        sqlite_path: str = "fused_database4.db",
-        parquet_path: str = "stock_cache_fin4.parquet",
-    ):
+    def __init__(self, sqlite_path: str = "fused_database4.db", parquet_path: str = "stock_cache_fin4.parquet"):
         self.sqlite_path = sqlite_path
         self.parquet_path = parquet_path
         self.pipeline_tool = MarketDataPipelineTool()
