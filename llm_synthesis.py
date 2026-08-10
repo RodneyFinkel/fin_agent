@@ -1,15 +1,18 @@
 import asyncio
+import json
 import logging
 import os
+from typing import AsyncGenerator
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage
 
 load_dotenv()
 logger = logging.getLogger("AnalysisService")
 
 class LLM_Synthesis:
-    def __init__(self, model_name: str = "llama3-70b-8192"):
+    def __init__(self, model_name: str = "llama-3.3-70b-versatile"):
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             logger.warning("GROQ_API_KEY not found in environment variables.")
@@ -17,43 +20,43 @@ class LLM_Synthesis:
             model_name=model_name,
             api_key=api_key,
             temperature=0.1,
-            max_tokens=1024
+            max_tokens=1024,
+            streaming=True
         )
 
-    async def generate_synthesis(
+    async def generate_synthesis_stream(
         self, 
         ticker: str, 
         prompt: str, 
         metrics: dict, 
         research_summary: str
-    ) -> str:
+    ) -> AsyncGenerator[str, None]:  # <--- Updated return type annotation:
         """
-        Injects metrics and news into the LangChain prompt template 
-        and invokes Groq for synthesis.
+        Injects metrics and news into system instructions and yields 
+        LLM tokens live as Groq generates them.
         """
-        logger.info(f"Generating LLM synthesis for {ticker}...")
+        logger.info(f"Streaming LLM synthesis for {ticker}...")
+
+        # Convert metrics dict to formatted JSON string for clean LLM ingestion
+        formatted_metrics = json.dumps(metrics, indent=2) if metrics else "N/A"
 
         system_instruction = f"""You are an expert Quantitative Analyst AI. 
-        You are analyzing {ticker} based strictly on the provided technical indicators and recent fundamental news.
-        Answer the user's question directly, clearly, and concisely. DO NOT hallucinate data outside of this context.
+                        You are analyzing {ticker} based strictly on the provided technical indicators and recent fundamental news.
+                        Answer the user's question directly, clearly, and concisely. DO NOT hallucinate data outside of this context.
 
-        --- TECHNICAL SNAPSHOT ---
-        RSI: {metrics.get('rsi', 'N/A')}
-        Moving Averages: {metrics.get('moving_averages', 'N/A')}
-        Bollinger Bands: {metrics.get('bollinger', 'N/A')}
-        Performance: {metrics.get('performance', 'N/A')}
+                        --- TECHNICAL SNAPSHOT ---
+                        {formatted_metrics}
 
-        --- LATEST FUNDAMENTAL NEWS ---
-        {research_summary}
-        """
+                        --- LATEST FUNDAMENTAL NEWS ---
+                        {research_summary}
+                        """
 
-        chat_prompt = ChatPromptTemplate.from_messages([
-            ("system", system_instruction),
-            ("human", "{user_query}")
-        ])
+        # Construct message objects directly to avoid prompt template variable parsing
+        messages = [
+            SystemMessage(content=system_instruction),
+            HumanMessage(content=prompt)
+        ]
 
-        chain = chat_prompt | self.llm
-
-        # Run thread bound invocation off the main event loop
-        response = await asyncio.to_thread(chain.invoke, {"user_query": prompt})
-        return response.content
+        async for chunk in self.llm.astream(messages):
+            if chunk.content:
+                yield chunk.content
