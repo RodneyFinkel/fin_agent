@@ -1,0 +1,19 @@
+services:
+  stock-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock_analytics_agent
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Persist ChromaDB vector store
+      - ./chroma_research_db:/app/chroma_research_db
+      # Persist SQLite / Parquet local datasets
+      - ./fused_database4.db:/app/fused_database4.db
+      - ./stock_cache_fin4.parquet:/app/stock_cache_fin4.parquet
+    restart: unless-stopped
