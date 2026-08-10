@@ -93,7 +93,9 @@ class ShortResearchAgent:
             passages_per_page=DEFAULT_PASSAGES_PER_PAGE,
             top_passages=DEFAULT_TOP_PASSAGES, 
             summary_sentences=DEFAULT_SUMMARY_SENTENCES, 
-            timeout=DEFAULT_TIMEOUT):
+            timeout=DEFAULT_TIMEOUT,
+            progress_callback=None,
+            **kwargs):
         
             start = time.time()
             urls = search_web(query, max_results=search_results)

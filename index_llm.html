@@ -232,199 +232,237 @@
     </div>
 
     <script>
-        function stockApp() {
-            return {
-                ticker: 'TSLA',
-                inputTicker: 'TSLA',
-                newTickerInput: '',
-                company: 'Loading...',
-                sector: '',
-                cachedTickers: [],
-                chart: null,
-                candlestickSeries: null,
-                ma20Series: null,
-                ma50Series: null,
-                upperBandSeries: null,
-                lowerBandSeries: null,
-                
-                // New Research Panel State
-                researchData: null,
-                isResearchLoading: false,
-                analyticalPicture: null,          
-                
-                // Chat Agent state
-                sessionId: '',
-                promptInput: '',
-                loading: false,
-                messages: [
-                    { role: 'assistant', content: 'Ready. Use the top charts for price action, or prompt the AI Python sandbox below for deep quantitative insights.', charts: [] }
-                ],
+        // Replace Alpine.js stockApp script in index3.html
+function stockApp() {
+    return {
+        ticker: 'TSLA',
+        inputTicker: 'TSLA',
+        newTickerInput: '',
+        company: 'Loading...',
+        sector: '',
+        cachedTickers: [],
+        chart: null,
+        candlestickSeries: null,
+        ma20Series: null,
+        ma50Series: null,
+        upperBandSeries: null,
+        lowerBandSeries: null,
+        
+        researchData: null,
+        isResearchLoading: false,
+        researchProgress: 'Initializing...',
+        analyticalPicture: null,          
+        
+        sessionId: '',
+        promptInput: '',
+        loading: false,
+        messages: [
+            { role: 'assistant', content: 'Ready. Use the top charts for price action, or prompt the AI Python sandbox below for deep quantitative insights.', charts: [] }
+        ],
 
-                initSession() {
-                    let sid = localStorage.getItem('alpha_session_id');
-                    if (!sid) {
-                        sid = 'sess_' + Math.random().toString(36).substring(2, 15);
-                        localStorage.setItem('alpha_session_id', sid);
-                    }
-                    this.sessionId = sid;
-
-                    setTimeout(() => {
-                        try {
-                            this.initChart();
-                            this.loadCachedTickers();
-                            this.fetchData();
-                        } catch (e) {
-                            console.error("Initialization error:", e);
-                        }
-                    }, 150);
-                },
-
-                initChart() {
-                    const chartContainer = document.getElementById('chart');
-                    this.chart = LightweightCharts.createChart(chartContainer, {
-                        width: chartContainer.clientWidth,
-                        height: 384,
-                        layout: {
-                            background: { color: '#1f2937' },
-                            textColor: '#9ca3af',
-                        },
-                        grid: {
-                            vertLines: { color: '#374151' },
-                            horzLines: { color: '#374151' },
-                        },
-                        timeScale: {
-                            borderColor: '#4b5563',
-                            timeVisible: true,
-                        },
-                    });
-
-                    this.candlestickSeries = this.chart.addSeries(LightweightCharts.CandlestickSeries, {
-                        upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444'
-                    });
-                    this.ma20Series = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#f59e0b', lineWidth: 2, title: 'MA20' });
-                    this.ma50Series = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#3b82f6', lineWidth: 2, title: 'MA50' });
-                    this.upperBandSeries = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#6b7280', lineWidth: 1, lineStyle: 2, title: 'Upper Band' });
-                    this.lowerBandSeries = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#6b7280', lineWidth: 1, lineStyle: 2, title: 'Lower Band' });
-
-                    window.addEventListener('resize', () => {
-                        if (this.chart) {
-                            this.chart.applyOptions({ width: chartContainer.clientWidth });
-                        }
-                    });
-                },
-
-                async loadCachedTickers() {
-                    try {
-                        const res = await fetch('/api/tickers');
-                        if (res.ok) {
-                            this.cachedTickers = await res.json();
-                        }
-                    } catch (err) {
-                        console.error("Failed to load cached tickers list", err);
-                    }
-                },
-
-                async addNewTicker() {
-                    if (!this.newTickerInput) return;
-                    const tickerToAdd = this.newTickerInput.trim().toUpperCase();
-                    
-                    try {
-                        const res = await fetch('/api/ticker/add', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ticker: tickerToAdd })
-                        });
-                        
-                        const result = await res.json();
-                        if (!res.ok) throw new Error(result.detail || 'Failed to add ticker.');
-
-                        alert(result.message);
-                        this.newTickerInput = '';
-                        await this.loadCachedTickers();
-                        
-                        this.inputTicker = tickerToAdd;
-                        this.fetchData();
-                    } catch (error) {
-                        alert("Error adding ticker: " + error.message);
-                    }
-                },
-
-                async fetchData() {
-                    this.isResearchLoading = true;
-                    this.researchData = null;
-                    this.analyticalPicture = null;
-                    
-                    try {
-                        const response = await fetch(`/api/stock/${this.inputTicker}`);
-                        if (!response.ok) {
-                            const errData = await response.json();
-                            throw new Error(errData.detail || 'Data could not be retrieved.');
-                        }
-                        const result = await response.json();
-
-                        this.ticker = result.ticker;
-                        this.company = result.company;
-                        this.sector = result.sector;
-                        this.researchData = result.research_summary;
-                        this.analyticalPicture = result.analytical_picture || null;
-
-                        // Render main chart
-                        if (result.chart_data && result.chart_data.length > 0) {
-                            this.candlestickSeries.setData(result.chart_data.map(d => ({
-                                time: d.time, open: d.open, high: d.high, low: d.low, close: d.close
-                            })));
-                            this.ma20Series.setData(result.chart_data.map(d => ({ time: d.time, value: d.ma20 })));
-                            this.ma50Series.setData(result.chart_data.map(d => ({ time: d.time, value: d.ma50 })));
-                            this.upperBandSeries.setData(result.chart_data.map(d => ({ time: d.time, value: d.upperBand })));
-                            this.lowerBandSeries.setData(result.chart_data.map(d => ({ time: d.time, value: d.lowerBand })));
-                            this.chart.timeScale().fitContent();
-                        }
-
-                    } catch (error) {
-                        console.error("Fetch/Render Error:", error);
-                        alert("Error loading data: " + error.message);
-                    } finally {
-                        this.isResearchLoading = false;
-                    }
-                },
-
-                async sendPrompt() {
-                    if (!this.promptInput.trim() || this.loading) return;
-                    const text = this.promptInput;
-                    this.promptInput = '';
-                    
-                    this.messages.push({ role: 'user', content: text, charts: [] });
-                    this.loading = true;
-                    this.scrollToBottom();
-
-                    try {
-                        const res = await fetch('http://localhost:8000/api/analyze', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-Session-ID': this.sessionId },
-                            body: JSON.stringify({ prompt: text, ticker: this.ticker})
-                        });
-                        const json = await res.json();
-                        if (json.status === 'success') {
-                            this.messages.push({ role: 'assistant', content: json.analysis, charts: json.charts });
-                        } else {
-                            this.messages.push({ role: 'assistant', content: 'Error executing analysis request.', charts: [] });
-                        }
-                    } catch (err) {
-                        this.messages.push({ role: 'assistant', content: 'Network communication failure to FastAPI backend.', charts: [] });
-                    } finally {
-                        this.loading = false;
-                        this.scrollToBottom();
-                    }
-                },
-
-                scrollToBottom() {
-                    this.$nextTick(() => {
-                        const log = this.$refs.chatLog;
-                        if(log) log.scrollTop = log.scrollHeight;
-                    });
-                }
+        initSession() {
+            let sid = localStorage.getItem('alpha_session_id');
+            if (!sid) {
+                sid = 'sess_' + Math.random().toString(36).substring(2, 15);
+                localStorage.setItem('alpha_session_id', sid);
             }
+            this.sessionId = sid;
+
+            setTimeout(() => {
+                this.initChart();
+                this.loadCachedTickers();
+                this.fetchData();
+            }, 150);
+        },
+
+        initChart() {
+            const chartContainer = document.getElementById('chart');
+            this.chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: 384,
+                layout: { background: { color: '#1f2937' }, textColor: '#9ca3af' },
+                grid: { vertLines: { color: '#374151' }, horzLines: { color: '#374151' } },
+                timeScale: { borderColor: '#4b5563', timeVisible: true },
+            });
+
+            this.candlestickSeries = this.chart.addSeries(LightweightCharts.CandlestickSeries, {
+                upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444'
+            });
+            this.ma20Series = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#f59e0b', lineWidth: 2, title: 'MA20' });
+            this.ma50Series = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#3b82f6', lineWidth: 2, title: 'MA50' });
+            this.upperBandSeries = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#6b7280', lineWidth: 1, lineStyle: 2, title: 'Upper Band' });
+            this.lowerBandSeries = this.chart.addSeries(LightweightCharts.LineSeries, { color: '#6b7280', lineWidth: 1, lineStyle: 2, title: 'Lower Band' });
+
+            window.addEventListener('resize', () => {
+                if (this.chart) this.chart.applyOptions({ width: chartContainer.clientWidth });
+            });
+        },
+
+        async loadCachedTickers() {
+            try {
+                const res = await fetch('/api/tickers');
+                if (res.ok) this.cachedTickers = await res.json();
+            } catch (err) {
+                console.error("Failed to load cached tickers", err);
+            }
+        },
+
+        async addNewTicker() {
+            if (!this.newTickerInput) return;
+            const tickerToAdd = this.newTickerInput.trim().toUpperCase();
+            try {
+                const res = await fetch('/api/ticker/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ticker: tickerToAdd })
+                });
+                const result = await res.json();
+                if (!res.ok) throw new Error(result.detail || 'Failed to add ticker.');
+
+                alert(result.message);
+                this.newTickerInput = '';
+                await this.loadCachedTickers();
+                this.inputTicker = tickerToAdd;
+                this.fetchData();
+            } catch (error) {
+                alert("Error adding ticker: " + error.message);
+            }
+        },
+
+        // --- STREAMING RESEARCH FETCH ---
+        async fetchData() {
+            this.isResearchLoading = true;
+            this.researchProgress = 'Connecting to data streams...';
+            this.researchData = null;
+            this.analyticalPicture = null;
+            
+            try {
+                const response = await fetch(`/api/stock/${this.inputTicker}/stream`);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop(); // save incomplete line chunk
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const event = JSON.parse(line.replace('data: ', ''));
+                            
+                            if (event.type === 'progress') {
+                                this.researchProgress = event.msg;
+                            } else if (event.type === 'stock_base') {
+                                this.ticker = this.inputTicker;
+                                this.company = event.company;
+                                this.sector = event.sector;
+                                this.analyticalPicture = event.analytical_picture;
+
+                                if (event.chart_data && event.chart_data.length > 0) {
+                                    this.candlestickSeries.setData(event.chart_data.map(d => ({
+                                        time: d.time, open: d.open, high: d.high, low: d.low, close: d.close
+                                    })));
+                                    this.ma20Series.setData(event.chart_data.map(d => ({ time: d.time, value: d.ma20 })));
+                                    this.ma50Series.setData(event.chart_data.map(d => ({ time: d.time, value: d.ma50 })));
+                                    this.upperBandSeries.setData(event.chart_data.map(d => ({ time: d.time, value: d.upperBand })));
+                                    this.lowerBandSeries.setData(event.chart_data.map(d => ({ time: d.time, value: d.lowerBand })));
+                                    this.chart.timeScale().fitContent();
+                                }
+                            } else if (event.type === 'research_complete') {
+                                this.researchData = event.data;
+                                this.isResearchLoading = false;
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Fetch/Render Stream Error:", error);
+                this.isResearchLoading = false;
+            }
+        },
+
+        // --- STREAMING LLM CHAT RESPONSE ---
+        async sendPrompt() {
+            if (!this.promptInput.trim() || this.loading) return;
+            const text = this.promptInput;
+            this.promptInput = '';
+
+            // Add placeholder assistant message for incoming stream
+            const assistantMsgIndex = this.messages.push({ role: 'assistant', content: '', charts: [] }) - 1;
+            this.messages.splice(assistantMsgIndex - 1, 0, { role: 'user', content: text, charts: [] });
+            
+            this.loading = true;
+            this.scrollToBottom();
+
+            let metricsPayload = {};
+            if (this.analyticalPicture) {
+                metricsPayload = {
+                    rsi: this.analyticalPicture.rsi,
+                    moving_averages: this.analyticalPicture.moving_averages,
+                    bollinger: this.analyticalPicture.bollinger,
+                    performance: this.analyticalPicture.performance
+                };
+            }
+
+            const researchPayload = this.researchData ? this.researchData.summary : "No news context available.";
+
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-ID': this.sessionId },
+                    body: JSON.stringify({ 
+                        prompt: text, 
+                        ticker: this.ticker,
+                        metrics: metricsPayload,
+                        research: researchPayload
+                    })
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const event = JSON.parse(line.replace('data: ', ''));
+
+                            if (event.type === 'charts') {
+                                this.messages[this.messages.length - 1].charts = event.charts;
+                            } else if (event.type === 'token') {
+                                this.messages[this.messages.length - 1].content += event.content;
+                                this.scrollToBottom();
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                this.messages[this.messages.length - 1].content = "Error streaming analysis output.";
+            } finally {
+                this.loading = false;
+                this.scrollToBottom();
+            }
+        },
+
+        scrollToBottom() {
+            this.$nextTick(() => {
+                const log = this.$refs.chatLog;
+                if (log) log.scrollTop = log.scrollHeight;
+            });
         }
+    }
+}
     </script>
 </body>
 </html>
