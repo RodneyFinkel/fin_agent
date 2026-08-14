@@ -206,8 +206,8 @@ if __name__ == "__main__":
     pipeline_tool = MarketDataPipelineTool()
     
     result = pipeline_tool.run(
-        tickers=["GE", "IBM", "MA"],
-        parquet_path="stock_cache_fin4.parquet",
-        sqlite_path="stock_database_fin4.db"
+        tickers=["NVDA", "JPM", "AMZN", "HAL"],
+        parquet_path="parquet_cache/stock_cache_fin5.parquet",
+        sqlite_path="databases/stock_database_fin5.db"
     )
     print(result)

@@ -80,5 +80,5 @@ def fuse_dbs_with_pandas(
 
 if __name__ == "__main__":
   fuse_dbs_with_pandas(
-      "fused_database3.db", "stock_database_fin4.db", "fused_database4.db"
+      "fused_database4.db", "databases/stock_database_fin5.db", "fused_database5.db"
   )

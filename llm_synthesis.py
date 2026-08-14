@@ -24,13 +24,7 @@ class LLM_Synthesis:
             streaming=True
         )
 
-    async def generate_synthesis_stream(
-        self, 
-        ticker: str, 
-        prompt: str, 
-        metrics: dict, 
-        research_summary: str
-    ) -> AsyncGenerator[str, None]:  # <--- Updated return type annotation:
+    async def generate_synthesis_stream(self, ticker: str, prompt: str, metrics: dict, research_summary: str ) -> AsyncGenerator[str, None]:  
         """
         Injects metrics and news into system instructions and yields 
         LLM tokens live as Groq generates them.
