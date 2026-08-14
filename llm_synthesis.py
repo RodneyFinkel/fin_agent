@@ -43,18 +43,21 @@ class LLM_Synthesis:
         formatted_picture = json.dumps(picture, indent=2) if picture else "N/A"
 
         system_instruction = f"""You are an expert Quantitative Analyst AI. 
-                                You are analyzing {ticker} based strictly on the provided technical indicators, custom Python sandbox execution output, and recent fundamental news.
-                                Answer the user's question directly, clearly, and concisely. DO NOT hallucinate data outside of this context.
+        You are analyzing {ticker} based strictly on the provided technical indicators, custom Python sandbox execution output, and recent fundamental news.
+        Answer the user's question directly, clearly, and concisely. 
 
-                                --- DETERMINISTIC TECHNICAL SNAPSHOT ---
-                                {formatted_picture}
+        CRITICAL GROUND TRUTH RULE: 
+        The "SANDBOX EXECUTION OUTPUT" section below contains the exact results computed from the database. Treat these results as absolute ground truth. If the sandbox output provides a calculated value, date, or metric, you MUST use it directly. Never claim that data is missing or unavailable if it is present in the sandbox execution output.
 
-                                --- SANDBOX EXECUTION OUTPUT ---
-                                {code_output}
+        --- DETERMINISTIC TECHNICAL SNAPSHOT ---
+        {formatted_picture}
 
-                                --- LATEST FUNDAMENTAL NEWS ---
-                                {research_summary}
-                                """
+        --- SANDBOX EXECUTION OUTPUT ---
+        {code_output}
+
+        --- LATEST FUNDAMENTAL NEWS ---
+        {research_summary}
+        """
 
         # Construct message objects directly to avoid prompt template variable parsing
         messages = [
@@ -94,7 +97,8 @@ class LLM_Synthesis:
             - Do not use markdown explanations outside the code block. 
             - Output the python code inside ```python ``` blocks.
             - **DO NOT fetch data from external APIs or libraries (e.g., `yfinance`, `requests`).** Everything you need is already in `df`.
-            - Access columns explicitly based on the available columns list provided above (e.g., `df['close']`, `df['time']`).
+            - Access columns explicitly based on the available columns list provided above (`df['close']`, `df['time']`, etc.).
+            - **DATETIME HANDLING:** When finding dates for maximum/minimum values, always extract the date from the `time` column explicitly (e.g., `max_date = df.loc[df['Volatility'].idxmax(), 'time']`), and **never** print raw integer row indices.
             - **YOU MUST USE `print()` STATEMENTS** to output your final text and numerical answers (e.g., `print(f"Max Vol Date: {{max_date}}")`). 
             - If plotting, use `plt` with `facecolor="#1f2937"` and do not call `plt.show()`.
             """),
