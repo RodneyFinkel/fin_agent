@@ -1,5 +1,3 @@
-# app/sandbox_engine.py
-
 import sys
 import io
 import base64
@@ -9,6 +7,13 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend for headless rendering
 import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from typing import Dict, Any
+
+class SandboxOutputSchema(BaseModel):
+    primary_finding: str = Field(..., description="A concise, human-readable summary of the calculation results.")
+    metrics: Dict[str, Any] = Field(default_factory=dict, description="Key-value pairs of calculated metrics.")
+    success: bool = True
 
 class CodeSandbox:
     def __init__(self, timeout_seconds: int = 5):
@@ -29,6 +34,7 @@ class CodeSandbox:
             "np": np,
             "plt": plt,
             "df": df_copy,
+            "SandboxOutputSchema": SandboxOutputSchema, # <-- Injected into scope!
             "result": None
         }
 
@@ -46,6 +52,15 @@ class CodeSandbox:
             
             stdout_str = redirected_output.getvalue().strip()
             result_val = execution_scope.get("result")
+            
+            # Serialize Pydantic result model cleanly if populated
+            output_payload = stdout_str
+            if isinstance(result_val, SandboxOutputSchema):
+                output_payload = result_val.model_dump_json(indent=2)
+            elif result_val is not None and output_payload == "":
+                output_payload = str(result_val)
+            elif output_payload == "":
+                output_payload = "Code executed successfully."
             
             # Capture generated Matplotlib figures if present
             chart_base64 = None

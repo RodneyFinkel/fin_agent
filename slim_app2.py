@@ -176,9 +176,15 @@ async def analyze(payload: dict):
             if "SKIP_EXECUTION" not in router_response:
                 yield f"data: {json.dumps({'type': 'token', 'content': ' *Running custom quantitative sandbox analysis...*\\n\\n'})}\n\n"
                 
+                
+                # ---> SHOW THE CODE IN THE UI <---
+                code_display = f"```python\n{router_response}\n```\n\n"
+                yield f"data: {json.dumps({'type': 'token', 'content': code_display})}\n\n"
+                
                 # Extract code and execute in sandbox
                 sandbox = CodeSandbox(timeout_seconds=5)
                 execution_res = await asyncio.to_thread(sandbox.execute_pandas_code, router_response, df)
+                logger.info(f"--- SANDBOX DEBUG --- Success: {execution_res['success']} | Output: {execution_res['output']} | Error: {execution_res['error']}")
                 
                 # Stream custom charts if generated
                 if execution_res.get("chart"):

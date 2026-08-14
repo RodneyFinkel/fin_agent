@@ -2,7 +2,8 @@ import asyncio
 import json
 import logging
 import os
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional, Literal, Dict, Any
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -10,6 +11,24 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 load_dotenv()
 logger = logging.getLogger("AnalysisService")
+
+class SandboxOutputSchema(BaseModel):
+    primary_finding: str = Field(..., description="A concise, human-readable summary of the calculation results.")
+    metrics: Dict[str, Any] = Field(default_factory=dict, description="Key-value pairs of calculated metrics.")
+    success: bool = True
+
+class RouterDecision(BaseModel):
+    action: Literal["skip", "code"] = Field(
+        ..., 
+        description="Choose 'skip' if the user query can be answered using only the Deterministic Picture. Choose 'code' if it requires custom pandas calculations on historical df."
+    )
+    python_code: Optional[str] = Field(
+        None, 
+        description="Valid Python code using 'df' that assigns its output to a variable named 'result' using SandboxOutputSchema. Required if action is 'code'."
+    )
+    reasoning: str = Field(..., description="Brief internal reasoning for the decision.")
+    
+    
 
 class LLM_Synthesis:
     def __init__(self, model_name: str = "llama-3.3-70b-versatile"):
@@ -47,7 +66,10 @@ class LLM_Synthesis:
         Answer the user's question directly, clearly, and concisely. 
 
         CRITICAL GROUND TRUTH RULE: 
-        The "SANDBOX EXECUTION OUTPUT" section below contains the exact results computed from the database. Treat these results as absolute ground truth. If the sandbox output provides a calculated value, date, or metric, you MUST use it directly. Never claim that data is missing or unavailable if it is present in the sandbox execution output.
+        The "SANDBOX EXECUTION OUTPUT" section below contains the exact results computed from the database. 
+        Treat these results as absolute ground truth. If the sandbox output provides a calculated value, date, 
+        or metric, you MUST use it directly. 
+        Never claim that data is missing or unavailable if it is present in the sandbox execution output.
 
         --- DETERMINISTIC TECHNICAL SNAPSHOT ---
         {formatted_picture}
@@ -77,40 +99,33 @@ class LLM_Synthesis:
         """
         router_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an elite AI Quantitative Routing Agent. 
-            You are evaluating a user query against a pre-computed deterministic baseline.
-
-            Deterministic Indicator Picture:
-            {picture}
+            Evaluate the user query against the technical snapshot and dataframe metadata.
 
             PROGRAMMATIC DATA-FRAME CONTEXT:
-            - The execution sandbox contains a pre-loaded Pandas DataFrame named `df`.
-            - Total Rows: {row_count}
-            - Available Columns & Types: {columns_info}
+            - Pre-loaded Pandas DataFrame named `df` (Rows: {row_count}, Columns: {columns_info}).
             - Date Range: {date_range}
 
-            Task:
-            1. Determine if the user's query can be fully answered using ONLY the summary indicators in the Deterministic Picture.
-            2. If YES: Output exactly the string SKIP_EXECUTION and nothing else.
-            3. If NO (requires rolling windows, custom math, historical loops): Output an executable Python Pandas script.
-
-            Strict Rules for Python generation:
-            - Do not use markdown explanations outside the code block. 
-            - Output the python code inside ```python ``` blocks.
-            - **DO NOT fetch data from external APIs or libraries (e.g., `yfinance`, `requests`).** Everything you need is already in `df`.
-            - Access columns explicitly based on the available columns list provided above (`df['close']`, `df['time']`, etc.).
-            - **DATETIME HANDLING:** When finding dates for maximum/minimum values, always extract the date from the `time` column explicitly (e.g., `max_date = df.loc[df['Volatility'].idxmax(), 'time']`), and **never** print raw integer row indices.
-            - **YOU MUST USE `print()` STATEMENTS** to output your final text and numerical answers (e.g., `print(f"Max Vol Date: {{max_date}}")`). 
-            - If plotting, use `plt` with `facecolor="#1f2937"` and do not call `plt.show()`.
+            Rules:
+            - If the query can be answered with the Deterministic Picture alone, set action to 'skip'.
+            - If it requires historical rolling windows, custom math, or time-series loops, set action to 'code'.
+            - **MANDATORY CONTRACT**: You must assign your final answer to a variable named `result` using `SandboxOutputSchema`.
+            - **CRITICAL DATE EXTRACTION RULE:** When finding the date of a maximum or minimum value, **NEVER return a raw integer row index**. You must always extract the string from the `'time'` column. Example:
+              ```python
+              idx = df['volatility'].idxmax()
+              max_date = str(df.loc[idx, 'time'])
+              ```
+            - DO NOT fetch data externally (no yfinance). Use the pre-loaded `df`.
             """),
             ("user", "Ticker: {ticker}\nUser Query: {prompt}")
         ])
 
         # Format column details cleanly for the prompt
         columns_str = ", ".join([f"'{col}' ({dtype})" for col, dtype in df_metadata["dtypes"].items()])
-
-        chain = router_prompt | self.llm
+        # Bind the Pydantic schema so the LLM must return a structured object
+        structured_llm = self.llm.with_structured_output(RouterDecision)
+        chain = router_prompt | structured_llm
         
-        response = await chain.ainvoke({
+        decision: RouterDecision = await chain.ainvoke({
             "picture": json.dumps(picture, indent=2),
             "row_count": df_metadata["row_count"],
             "columns_info": columns_str,
@@ -119,4 +134,18 @@ class LLM_Synthesis:
             "prompt": prompt
         })
 
-        return response.content
+        if decision.action == "skip":
+            return "SKIP_EXECUTION"
+        
+        return decision.python_code
+        
+        # response = await chain.ainvoke({
+        #     "picture": json.dumps(picture, indent=2),
+        #     "row_count": df_metadata["row_count"],
+        #     "columns_info": columns_str,
+        #     "date_range": str(df_metadata["date_range"]),
+        #     "ticker": ticker,
+        #     "prompt": prompt
+        # })
+
+        # return response.content
