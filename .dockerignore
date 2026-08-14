@@ -1,8 +1,7 @@
 env
 utils
-slim_app.py
+
 index.html
-pipeline.py
 static
 parquet_cache
 databases
