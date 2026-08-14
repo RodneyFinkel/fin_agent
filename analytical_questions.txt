@@ -1,3 +1,7 @@
 Calculate the 30-day rolling annualized volatility of daily returns, 
 identify the date with the highest volatility spike in the dataset, 
 and plot the rolling volatility trend line.
+
+
+
+Calculate the 30-day rolling annualized volatility of daily returns and plot the rolling volatility trend line.
