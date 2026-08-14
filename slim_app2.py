@@ -33,8 +33,8 @@ HTML_PATH = "index_llm.html"
 
 # Initialize Services
 stock_service = StockDataService(
-    sqlite_path="fused_database4.db",
-    parquet_path="stock_cache_fin4.parquet",
+    sqlite_path="fused_database5.db",
+    parquet_path="parquet_cache/stock_cache_fin5.parquet",
 )
 research_agent = ShortResearchAgent()
 analysis_service = LLM_Synthesis()
