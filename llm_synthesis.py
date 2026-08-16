@@ -12,12 +12,7 @@ from sandbox_engine import SandboxOutputSchema
 
 load_dotenv()
 logger = logging.getLogger("AnalysisService")
-
-class SandboxOutputSchema(BaseModel):
-    primary_finding: str = Field(..., description="A concise, human-readable summary of the calculation results.")
-    metrics: Dict[str, Any] = Field(default_factory=dict, description="Key-value pairs of calculated metrics.")
-    success: bool = True
-    artifact_parquet: Optional[str] = None
+    
 
 class RouterDecision(BaseModel):
     action: Literal["skip", "code"] = Field(
