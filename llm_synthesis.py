@@ -16,14 +16,26 @@ logger = logging.getLogger("AnalysisService")
 
 class RouterDecision(BaseModel):
     action: Literal["skip", "code"] = Field(
-        ..., 
-        description="Choose 'skip' if the user query can be answered using only the Deterministic Picture. Choose 'code' if it requires custom pandas calculations on historical df."
+        ...,
+        description=(
+            "Choose 'skip' if the user query can be answered using only the "
+            "Deterministic Picture + schema. Choose 'code' if it requires "
+            "custom pandas calculations on the historical df."
+        ),
     )
     python_code: Optional[str] = Field(
-        None, 
-        description="Valid Python code using 'df' that assigns its output to a variable named 'result' using SandboxOutputSchema. Required if action is 'code'."
+        None,
+        description=(
+            "REQUIRED when action='code'. Complete, executable Python that uses "
+            "the pre-loaded DataFrame `df` and assigns its final answer to a "
+            "variable named `result` using SandboxOutputSchema. "
+            "Never leave this field null or empty when action is 'code'."
+        ),
     )
-    reasoning: str = Field(..., description="Brief internal reasoning for the decision.")
+    reasoning: str = Field(
+        ...,
+        description="Brief internal reasoning for the decision.",
+    )
     
     
 
@@ -35,8 +47,8 @@ class LLM_Synthesis:
         self.llm = ChatGroq(
             model_name=model_name,
             api_key=api_key,
-            temperature=0.1,
-            max_tokens=1024,
+            temperature=0.0,
+            max_tokens=2048,
             streaming=True
         )
     
