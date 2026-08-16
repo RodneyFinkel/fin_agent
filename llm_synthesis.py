@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
+from sandbox_engine import SandboxOutputSchema
 
 load_dotenv()
 logger = logging.getLogger("AnalysisService")
