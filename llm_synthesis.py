@@ -105,28 +105,6 @@ class LLM_Synthesis:
         Decides whether custom code is needed and, if so, emits a complete script that
         obeys the SandboxOutputSchema contract.
         """
-        # router_prompt = ChatPromptTemplate.from_messages([
-        #     ("system", """You are an elite AI Quantitative Routing Agent. 
-        #     Evaluate the user query against the technical snapshot and dataframe metadata.
-
-        #     PROGRAMMATIC DATA-FRAME CONTEXT:
-        #     - Pre-loaded Pandas DataFrame named `df` (Rows: {row_count}, Columns: {columns_info}).
-        #     - Date Range: {date_range}
-
-        #     Rules:
-        #     - If the query can be answered with the Deterministic Picture alone, set action to 'skip'.
-        #     - If it requires historical rolling windows, custom math, or time-series loops, set action to 'code'.
-        #     - **MANDATORY CONTRACT**: You must assign your final answer to a variable named `result` using `SandboxOutputSchema`.
-        #     - **CRITICAL DATE EXTRACTION RULE:** When finding the date of a maximum or minimum value, **NEVER return a raw integer row index**. You must always extract the string from the `'time'` column. Example:
-        #       ```python
-        #       idx = df['volatility'].idxmax()
-        #       max_date = str(df.loc[idx, 'time'])
-        #       ```
-        #     - USE the pre-loaded `df`.
-        #     """),
-        #     ("user", "Ticker: {ticker}\nUser Query: {prompt}")
-        # ])
-        
         
         router_prompt = ChatPromptTemplate.from_messages(
             [
@@ -188,15 +166,6 @@ class LLM_Synthesis:
         structured_llm = self.llm.with_structured_output(RouterDecision)
         chain = router_prompt | structured_llm
         
-        # decision: RouterDecision = await chain.ainvoke({
-        #     "picture": json.dumps(picture, indent=2),
-        #     "row_count": df_metadata["row_count"],
-        #     "columns_info": columns_str,
-        #     "date_range": str(df_metadata["date_range"]),
-        #     "ticker": ticker,
-        #     "prompt": prompt
-        # })
-        
         decision: RouterDecision = await chain.ainvoke(
             {
                 "schema_block": schema_block,
@@ -215,6 +184,6 @@ class LLM_Synthesis:
             return "SKIP_EXECUTION"
         
         logging.info(f"Router generated code for {ticker}:\n{decision.python_code[:300]}...")  # Log first 300 chars
-        return decision.python_code
+        return decision.python_code    # ← THIS is the generated code string
         
       
