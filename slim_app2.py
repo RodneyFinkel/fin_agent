@@ -13,6 +13,7 @@ from agent5_async import ShortResearchAgent
 from analytical_engine import build_analytical_picture
 from stock_service import StockDataService
 from llm_synthesis import LLM_Synthesis  # ← Dedicated LLM service
+from schema_layer import build_df_schema, schema_to_prompt_block # <- NEW schema layer for LLM routing
 from sandbox_engine import CodeSandbox
 
 logging.basicConfig(
@@ -73,15 +74,22 @@ async def analyze(payload: dict):
         # 1. Fetch raw data & generate the deterministic picture immediately
         db_results = stock_service.get_chart_data(ticker)
         df = pd.DataFrame(db_results["data"])
-        df["time"] = pd.to_datetime(df["time"])
-        # Programmatically extract live DataFrame metadata
-        df_metadata = {
-            "row_count": len(df),
-            "columns": df.columns.tolist(),
-            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-            "date_range": [str(df["time"].min()), str(df["time"].max())] if "time" in df.columns else "Unknown"
-        }
+        df["time"] = pd.to_datetime(df["time"], errors="coerce")
+        logging.info(f"Fetched {len(df)} rows for {ticker} from database.")
+        
+        # # Programmatically extract live DataFrame metadata
+        # df_metadata = {
+        #     "row_count": len(df),
+        #     "columns": df.columns.tolist(),
+        #     "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+        #     "date_range": [str(df["time"].min()), str(df["time"].max())] if "time" in df.columns else "Unknown"
+        # }
+        
+        schema = build_df_schema(df, ticker)
+        schema_block = schema_to_prompt_block(schema)
+        logging.info(f"Schema block for {ticker}:\n{schema_block}")
         picture = build_analytical_picture(db_results["data"], include_charts=False)
+        logging.info(f"Generated analytical picture for {ticker}.")
 
         async def event_generator():
             # Initial progress update
@@ -92,13 +100,15 @@ async def analyze(payload: dict):
                 ticker=ticker, 
                 prompt=prompt, 
                 picture=picture,
-                df_metadata=df_metadata
+                schema_block=schema_block,
+                research_summary=research_summary,
             )
-
+            logging.info(f"Router response for {ticker}: {router_response[:200]}...")  # Log first 200 chars
             code_context = "No custom execution required. Baseline metrics used."
 
             # 3. Dynamic Routing: Check for the bypass keyword
             if "SKIP_EXECUTION" not in router_response:
+            #if router_response and router_response != "SKIP_EXECUTION":
                 yield f"data: {json.dumps({'type': 'token', 'content': ' *Running custom quantitative sandbox analysis...*\\n\\n'})}\n\n"
                 
                 
@@ -107,15 +117,29 @@ async def analyze(payload: dict):
                 yield f"data: {json.dumps({'type': 'token', 'content': code_display})}\n\n"
                 
                 # Extract code and execute in sandbox
-                sandbox = CodeSandbox(timeout_seconds=5)
-                execution_res = await asyncio.to_thread(sandbox.execute_pandas_code, router_response, df)
-                logger.info(f"--- SANDBOX DEBUG --- Success: {execution_res['success']} | Output: {execution_res['output']} | Error: {execution_res['error']}")
+                sandbox = CodeSandbox(timeout_seconds=8, persist_artifacts=True)
+                logging.info(f"Executing sandbox code for {ticker}...")
+                execution_res = await asyncio.to_thread(sandbox.execute_pandas_code, router_response, df, ticker,)
+                logging.info(f"--- SANDBOX DEBUG --- Success: {execution_res['success']} | Artifact: {execution_res.get('artifact_parquet')} | Error: {execution_res['error']}")
                 
                 # Stream custom charts if generated
                 if execution_res.get("chart"):
                     yield f"data: {json.dumps({'type': 'charts', 'charts': [execution_res['chart']]})}\n\n"
 
-                code_context = execution_res["output"] if execution_res["success"] else f"Execution Error: {execution_res['error']}"
+                ###NEW
+                if execution_res["success"]:
+                    code_context = execution_res["output"]  # already compact JSON
+                    if execution_res.get("artifact_parquet"):
+                        # Inform the final LLM that a longer series was archived
+                        code_context += (
+                            f"\n\n[Note: a longer intermediate series was archived to "
+                            f"{execution_res['artifact_parquet']}; only the summary metrics above "
+                            f"are available for narrative analysis.]"
+                        )
+                else:
+                    code_context = f"Execution Error: {execution_res['error']}"
+                
+                #code_context = execution_res["output"] if execution_res["success"] else f"Execution Error: {execution_res['error']}"
 
             # 4. Final Synthesis: Pass all context to the LLM for the final stream
             async for token in analysis_service.generate_synthesis_stream(
@@ -132,7 +156,7 @@ async def analyze(payload: dict):
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     except Exception as e:
-        logger.exception(f"Error in /api/analyze for {ticker}: {str(e)}")
+        logging.exception(f"Error in /api/analyze for {ticker}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     
     
