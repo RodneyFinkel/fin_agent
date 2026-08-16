@@ -14,6 +14,5 @@ services:
       # Persist ChromaDB vector store
       - ./chroma_research_db:/app/chroma_research_db
       # Persist SQLite / Parquet local datasets
-      - ./fused_database4.db:/app/fused_database4.db
-      - ./stock_cache_fin4.parquet:/app/stock_cache_fin4.parquet
+      - ./fused_database5.db:/app/fused_database5.db
     restart: unless-stopped

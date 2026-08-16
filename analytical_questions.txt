@@ -11,12 +11,3 @@ Calculate the 30-day rolling annualized volatility of daily returns and plot the
 
 
 
-""""""what is needed is a layer before the sandbox_engine that makes the llm router aware of the 
-        db under investigation which is the loaded ticker, the problem at the moment i think 
-        (this must be checked) is that the sandbox has access programatically to the db time 
-        series but the llm doesnt, it gets passed the entire result set from the calculation only,
-        which must also be redirected. SO the layer to be added is before the router makes 
-        a decision, it needs the time series db schema to read, as for the final result package 
-        the LLM cannot do an analysis by crunching numbers itself, it must not be fed data 
-        beyond schema, questions, the previously calculated analytical picture 
-        and code generated"""""""
