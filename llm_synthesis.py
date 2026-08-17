@@ -14,7 +14,7 @@ load_dotenv()
 logger = logging.getLogger("AnalysisService")
     
 
-class RouterDecision(BaseModel):
+class RouteOnlyDecision(BaseModel):
     action: Literal["skip", "code"] = Field(
         ...,
         description=(
@@ -23,19 +23,21 @@ class RouterDecision(BaseModel):
             "custom pandas calculations on the historical df."
         ),
     )
-    python_code: Optional[str] = Field(
-        None,
-        description=(
-            "REQUIRED when action='code'. Complete, executable Python that uses "
-            "the pre-loaded DataFrame `df` and assigns its final answer to a "
-            "variable named `result` using SandboxOutputSchema. "
-            "Never leave this field null or empty when action is 'code'."
-        ),
-    )
     reasoning: str = Field(
         ...,
         description="Brief internal reasoning for the decision.",
     )
+    
+class GeneratedCode(BaseModel):
+    python_code: str = Field(
+            ...,
+            description=(
+                "Complete executable Python that uses the pre-loaded DataFrame `df` "
+                "and ends with result = SandboxOutputSchema("
+                "primary_finding=..., metrics={...}, success=True). "
+                "Must be non-empty."
+            ),
+        )
     
     
 
@@ -48,8 +50,16 @@ class LLM_Synthesis:
             model_name=model_name,
             api_key=api_key,
             temperature=0.0,
-            max_tokens=2048,
+            max_tokens=1048,
             streaming=True
+        )
+        # Dedicated higher-budget client for code generation
+        self.code_llm=ChatGroq(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=2048,
+            streaming=True,
         )
     
     
@@ -101,20 +111,27 @@ class LLM_Synthesis:
                 yield chunk.content
                 
                 
-                
-    async def evaluate_and_generate_code(self, ticker: str, 
+    ### TWO PHASE ROUTER ###          
+    async def evaluate_and_generate_code(self, 
+                                         ticker: str, 
                                          prompt: str, 
                                          picture: dict, 
                                          schema_block: str="",
-                                         research_summary: str=""
+                                         research_summary: str="",
                                          ) -> str:
         """
-        Router step. Receives a rich textual schema of the ticker DB + picture + research.
-        Decides whether custom code is needed and, if so, emits a complete script that
-        obeys the SandboxOutputSchema contract.
+        Two-phase router:
+          1. Decide skip vs code (tiny structured output).
+          2. If code is required, generate the full script in a second call.
+            Receives a rich textual schema of the ticker DB + picture + research.
+            Decides whether custom code is needed and, if so, emits a complete script that
+            obeys the SandboxOutputSchema contract.
         """
+        picture_json = json.dumps(picture, indent=2) if picture else "N/A"
+        research = research_summary or "No research context"
         
-        router_prompt = ChatPromptTemplate.from_messages(
+        
+        decide_prompt = ChatPromptTemplate.from_messages(
             [
                 (
                     "system",
@@ -131,25 +148,7 @@ class LLM_Synthesis:
                     - If the query can be answered from the Deterministic Picture alone → action = "skip".
                     - If it needs historical rolling windows, custom math, volatility, drawdowns,
                     custom filters, or any time-series calculation not already in the picture → action = "code".
-                    - When action = "code" you MUST emit complete, executable Python that:
-                    * Uses the pre-loaded DataFrame `df` (already contains a datetime column named `time`).
-                    * Assigns the final answer to a variable named `result` using SandboxOutputSchema.
-                    * Puts ONLY short scalars / ISO dates / short lists into `metrics`.
-                    * NEVER dumps a full Series or long DataFrame into `result` or into metrics.
-                        (The sandbox will automatically archive long series to parquet and keep only a summary.)
-                    * When locating the date of a max/min value, ALWAYS do:
-                            idx = series.idxmax()          # or idxmin
-                            max_date = str(df.loc[idx, 'time'])
-                        Never return a raw integer index.
-                    * If a plot is requested, create it with matplotlib (plt) – the sandbox captures the figure.
-
-                    SandboxOutputSchema contract reminder:
-                        result = SandboxOutputSchema(
-                            primary_finding="...",   # one concise sentence
-                            metrics={{...}},         # short key-value pairs only
-                            success=True
-                        )
-
+                   
                     --- DATAFRAME SCHEMA ---
                     {schema_block}
 
@@ -166,32 +165,82 @@ class LLM_Synthesis:
                 ),
             ]
         )
-
-        # # Format column details cleanly for the prompt
-        # columns_str = ", ".join([f"'{col}' ({dtype})" for col, dtype in df_metadata["dtypes"].items()])
         
         # Bind the Pydantic schema so the LLM must return a structured object
-        structured_llm = self.llm.with_structured_output(RouterDecision)
-        chain = router_prompt | structured_llm
+        decide_chain = decide_prompt | self.llm.with_structured_output(RouteOnlyDecision)
         
-        decision: RouterDecision = await chain.ainvoke(
+        decision: RouteOnlyDecision = await decide_chain.ainvoke(
             {
                 "schema_block": schema_block,
-                "picture_json": json.dumps(picture, indent=2) if picture else "N/A",
-                "research_summary": research_summary or "No research context.",
+                "picture_json": picture_json,
+                "research_summary": research,
                 "ticker": ticker,
                 "prompt": prompt,
             }
         )
-
+        
         logger.info(
-            f"Router decision for {ticker}: action={decision.action} | reasoning={decision.reasoning[:120]}..."
+            f"Phase-1 router for {ticker}: action={decision.action} | "
+            f"reasoning={(decision.reasoning or '')[:120]}..."
         )
 
         if decision.action == "skip":
             return "SKIP_EXECUTION"
         
-        logging.info(f"Router generated code for {ticker}:\n{decision.python_code[:300]}...")  # Log first 300 chars
-        return decision.python_code    # ← THIS is the generated code string
+        # ── Phase 2: Generate the script ──────────────────────────────────
+        code_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert Python quant developer.
+
+                Write a COMPLETE, executable Python script that answers the user query
+                using the pre-loaded Pandas DataFrame named `df`.
+
+                HARD CONTRACTS:
+                1. `df` already exists and has a datetime column named `time`.
+                2. Final answer MUST be assigned to a variable named `result` using:
+                    result = SandboxOutputSchema(
+                        primary_finding="one concise sentence",
+                        metrics={{...}},   # short scalars / ISO dates only
+                        success=True
+                    )
+                3. NEVER put a full Series or long DataFrame into metrics.
+                4. When finding the date of a max/min:
+                    idx = series.idxmax()
+                    max_date = str(df.loc[idx, 'time'])
+                Never return a raw integer index.
+                5. If a plot is requested, use matplotlib (plt). The sandbox captures the figure.
+                6. Output ONLY the Python code inside the structured field. No markdown fences.
+
+                --- DATAFRAME SCHEMA ---
+                {schema_block}
+
+                --- USER QUERY ---
+                {prompt}
+
+                --- ROUTER REASONING (why code is needed) ---
+                {reasoning}
+                """),
+                            ("user", "Ticker: {ticker}\nGenerate the full Python script now."),
+                        ])
+        
+        code_chain = code_prompt | self.code_llm.with_structured_output(GeneratedCode)
+        generated: GeneratedCode = await code_chain.ainvoke(
+            {
+                "schema_block": schema_block,
+                "prompt": prompt,
+                "reasoning": decision.reasoning,
+                "ticker": ticker,
+            }
+        )
+        
+        code = (generated.python_code or "").strip()
+        if not code: 
+            raise RuntimeError(
+                f"Phase-2 code generation returned empty python_code for {ticker}. "
+                f"Phase-1 reasoning was: {decision.reasoning}"
+            )
+        
+        
+        logging.info(f"Phase 2 generated code for {ticker}:\n{code[:300]}...")  # Log first 300 chars
+        return code    # ← THIS is the generated code string
         
       
