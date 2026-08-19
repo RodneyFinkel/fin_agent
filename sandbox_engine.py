@@ -248,15 +248,6 @@ class CodeSandbox:
             schema_obj = self._coerce_to_schema(result_val, stdout_str, ticker)
             output_payload = schema_obj.model_dump_json(indent=2)
             
-            # # Serialize Pydantic result model cleanly if populated
-            # output_payload = stdout_str
-            # if isinstance(result_val, SandboxOutputSchema):
-            #     output_payload = result_val.model_dump_json(indent=2)
-            # elif result_val is not None and output_payload == "":
-            #     output_payload = str(result_val)
-            # elif output_payload == "":
-            #     output_payload = "Code executed successfully."
-            
             logging.info(f"Processing sandbox output for {ticker}...")
             
             # Capture generated Matplotlib figures if present
