@@ -32,7 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-HTML_PATH = "index_llm.html"
+HTML_PATH = "index_llm2.html"
 
 # Initialize Services
 stock_service = StockDataService(
