@@ -67,7 +67,7 @@ class LLM_Synthesis:
         self, 
         ticker: str, 
         prompt: str, 
-        picture: dict,       # <--- (Previously your 'metrics' dict)
+        picture: dict,       # <--- (Previously 'metrics' dict)
         code_output: str,    # <--- The new Sandbox output parameter
         research_summary: str
     ) -> AsyncGenerator[str, None]:  
