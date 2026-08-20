@@ -7,7 +7,7 @@ and plot the rolling volatility trend line.
 Calculate the 30-day rolling annualized volatility of daily returns and plot the rolling volatility trend line.
 
 
-
+What is the latest RSI and MA structure?
 
 
 
