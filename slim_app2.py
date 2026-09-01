@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 import uvicorn
 # APP Modules
+from prompt_manager import prompt_manager
 from agent5_async import ShortResearchAgent
 from analytical_engine import build_analytical_picture
 from stock_service import StockDataService
@@ -225,6 +226,32 @@ async def stream_stock_data(ticker: str):
             yield f"data: {json.dumps(item)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+#####hot-swappable prompt system.
+
+@app.get("/api/prompts")
+def list_prompts():
+    return {"prompts": prompt_manager.list_prompts()}
+
+
+@app.get("/api/prompts/{name}")
+def get_prompt(name: str):
+    try:
+        return {"name": name, "content": prompt_manager.get(name)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Prompt '{name}' not found")
+
+
+@app.put("/api/prompts/{name}")
+async def update_prompt(name: str, payload: dict):
+    content = payload.get("content", "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="content is required")
+    prompt_manager.set(name, content)
+    return {"status": "ok", "name": name}
+
+
 
 if __name__ == "__main__":
     uvicorn.run("slim_app2:app", host="127.0.0.1", port=8000, reload=True)
