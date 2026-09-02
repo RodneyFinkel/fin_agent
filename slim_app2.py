@@ -97,7 +97,7 @@ async def analyze(payload: dict):
             # Initial progress update
             #yield "data: " + json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...*\\n\\n'}) + "\n\n"
             payload = json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...\n\n'})
-            yield "data: " + payload}\n\n"
+            yield "data: " + payload + "\n\n"
 
             # 2. Ask LLM to evaluate the picture vs the user's prompt
             router_response = await analysis_service.evaluate_and_generate_code(
@@ -225,7 +225,7 @@ async def stream_stock_data(ticker: str):
             item = await queue.get()
             if item is None:
                 break
-            yield "data: " + json.dumps(item)}\n\n"
+            yield "data: " + json.dumps(item) + "\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
