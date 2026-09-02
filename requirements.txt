@@ -2,6 +2,7 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Core Web Framework
+spaces
 gradio>=5.0.0
 huggingface-hub>=0.23.2,<1.0.0
 uvicorn[standard]
