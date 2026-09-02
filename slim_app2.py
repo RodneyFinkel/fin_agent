@@ -95,7 +95,9 @@ async def analyze(payload: dict):
 
         async def event_generator():
             # Initial progress update
-            yield f"data: {json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...*\\n\\n'})}\n\n"
+            #yield f"data: {json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...*\\n\\n'})}\n\n"
+            payload = json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...\n\n'})
+            yield f"data: {payload}\n\n"
 
             # 2. Ask LLM to evaluate the picture vs the user's prompt
             router_response = await analysis_service.evaluate_and_generate_code(
