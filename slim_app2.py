@@ -8,13 +8,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 import uvicorn
+
 # APP Modules
 from prompt_manager import prompt_manager
 from agent5_async import ShortResearchAgent
 from analytical_engine import build_analytical_picture
 from stock_service import StockDataService
-from llm_synthesis import LLM_Synthesis  # ← Dedicated LLM service
-from schema_layer import build_df_schema, schema_to_prompt_block # <- NEW schema layer for LLM routing
+from llm_synthesis import LLM_Synthesis
+from schema_layer import build_df_schema, schema_to_prompt_block
 from sandbox_engine import CodeSandbox
 
 logging.basicConfig(
@@ -63,8 +64,7 @@ def add_ticker(payload: dict):
     return {"status": "success", "message": message}
 
 
-
-#________NEW ENDPOINT WITH SANDBOX FOR CUSTOM CODE EXECUTION________
+# ________NEW ENDPOINT WITH SANDBOX FOR CUSTOM CODE EXECUTION________
 
 @app.post("/api/analyze")
 async def analyze(payload: dict):
@@ -79,14 +79,6 @@ async def analyze(payload: dict):
         df["time"] = pd.to_datetime(df["time"], errors="coerce")
         logging.info(f"Fetched {len(df)} rows for {ticker} from database.")
         
-        # # Programmatically extract live DataFrame metadata
-        # df_metadata = {
-        #     "row_count": len(df),
-        #     "columns": df.columns.tolist(),
-        #     "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-        #     "date_range": [str(df["time"].min()), str(df["time"].max())] if "time" in df.columns else "Unknown"
-        # }
-        
         schema = build_df_schema(df, ticker)
         schema_block = schema_to_prompt_block(schema)
         logging.info(f"Schema block for {ticker}:\n{schema_block}")
@@ -95,9 +87,8 @@ async def analyze(payload: dict):
 
         async def event_generator():
             # Initial progress update
-            #yield "data: " + json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...*\\n\\n'}) + "\n\n"
-            payload = json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...\n\n'})
-            yield "data: " + payload + "\n\n"
+            payload1 = json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...\n\n'})
+            yield "data: " + payload1 + "\n\n"
 
             # 2. Ask LLM to evaluate the picture vs the user's prompt
             router_response = await analysis_service.evaluate_and_generate_code(
@@ -107,34 +98,31 @@ async def analyze(payload: dict):
                 schema_block=schema_block,
                 research_summary=research_summary,
             )
-            logging.info(f"Router response for {ticker}: {router_response[:200]}...")  # Log first 200 chars
+            logging.info(f"Router response for {ticker}: {router_response[:200]}...")
             code_context = "No custom execution required. Baseline metrics used."
 
             # 3. Dynamic Routing: Check for the bypass keyword
             if "SKIP_EXECUTION" not in router_response:
-            #if router_response and router_response != "SKIP_EXECUTION":
-                yield "data: " + json.dumps({'type': 'token', 'content': ' *Running custom quantitative sandbox analysis...*\\n\\n'}) + "\n\n"
+                payload2 = json.dumps({'type': 'token', 'content': ' *Running custom quantitative sandbox analysis...\n\n'})
+                yield "data: " + payload2 + "\n\n"
                 
-                
-                # ---> SHOW THE CODE IN THE UI <---
+                # SHOW THE CODE IN THE UI
                 code_display = f"```python\n{router_response}\n```\n\n"
                 yield "data: " + json.dumps({'type': 'token', 'content': code_display}) + "\n\n"
                 
                 # Extract code and execute in sandbox
                 sandbox = CodeSandbox(timeout_seconds=8, persist_artifacts=True)
                 logging.info(f"Executing sandbox code for {ticker}...")
-                execution_res = await asyncio.to_thread(sandbox.execute_pandas_code, router_response, df, ticker,)
+                execution_res = await asyncio.to_thread(sandbox.execute_pandas_code, router_response, df, ticker)
                 logging.info(f"--- SANDBOX DEBUG --- Success: {execution_res['success']} | Artifact: {execution_res.get('artifact_parquet')} | Error: {execution_res['error']}")
                 
                 # Stream custom charts if generated
                 if execution_res.get("chart"):
                     yield "data: " + json.dumps({'type': 'charts', 'charts': [execution_res['chart']]}) + "\n\n"
 
-                ###NEW
                 if execution_res["success"]:
-                    code_context = execution_res["output"]  # already compact JSON
+                    code_context = execution_res["output"]
                     if execution_res.get("artifact_parquet"):
-                        # Inform the final LLM that a longer series was archived
                         code_context += (
                             f"\n\n[Note: a longer intermediate series was archived to "
                             f"{execution_res['artifact_parquet']}; only the summary metrics above "
@@ -142,8 +130,6 @@ async def analyze(payload: dict):
                         )
                 else:
                     code_context = f"Execution Error: {execution_res['error']}"
-                
-                #code_context = execution_res["output"] if execution_res["success"] else f"Execution Error: {execution_res['error']}"
 
             # 4. Final Synthesis: Pass all context to the LLM for the final stream
             async for token in analysis_service.generate_synthesis_stream(
@@ -162,8 +148,7 @@ async def analyze(payload: dict):
     except Exception as e:
         logging.exception(f"Error in /api/analyze for {ticker}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-    
-    
+
 
 # --- STREAMING RESEARCH & STOCK DATA ENDPOINT ---
 @app.get("/api/stock/{ticker}/stream")
@@ -200,7 +185,7 @@ async def stream_stock_data(ticker: str):
             logger.exception(f"Research streaming error for {ticker}: {e}")
             await queue.put({"type": "error", "msg": str(e)})
         finally:
-            await queue.put(None)  # Sentinel to close queue
+            await queue.put(None)
 
     async def event_generator():
         # 1. Immediately fetch SQLite chart data & technical indicators
@@ -230,7 +215,7 @@ async def stream_stock_data(ticker: str):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-#####hot-swappable prompt system.
+# --- HOT-SWAPPABLE PROMPT SYSTEM ---
 
 @app.get("/api/prompts")
 def list_prompts():
@@ -252,7 +237,6 @@ async def update_prompt(name: str, payload: dict):
         raise HTTPException(status_code=400, detail="content is required")
     prompt_manager.set(name, content)
     return {"status": "ok", "name": name}
-
 
 
 if __name__ == "__main__":
