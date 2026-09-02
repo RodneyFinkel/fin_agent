@@ -22,4 +22,6 @@ app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 7860))
-    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
+    #uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
+    # Pass object directly (app) instead of string ("app:app") to prevent re-import subprocess loops
+    uvicorn.run(app, host="0.0.0.0", port=port)
