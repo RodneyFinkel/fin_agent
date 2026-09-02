@@ -2,6 +2,7 @@ import os
 import gradio as gr
 from fastapi.responses import HTMLResponse
 from slim_app2 import app as fastapi_app  # Imports your existing FastAPI instance
+from slim_app2 import app
 
 # 1. Build a minimal Gradio UI block to satisfy Hugging Face Space health checks
 # with gr.Blocks(title="Stock Analytics Agent") as demo:
