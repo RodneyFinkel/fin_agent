@@ -84,3 +84,7 @@ You do not need to change any Docker settings for this app.
 
 
 <img width="792" height="966" alt="Screenshot 2026-08-10 at 16 17 51" src="https://github.com/user-attachments/assets/29c016eb-6828-43c1-baf4-7aee51254598" />
+
+<img width="1050" height="966" alt="Screenshot 2026-09-03 at 14 18 15" src="https://github.com/user-attachments/assets/695dadfd-6238-4f01-b798-ceffdf01a985" />
+<img width="1434" height="598" alt="Screenshot 2026-09-03 at 14 19 07" src="https://github.com/user-attachments/assets/35217504-7559-4501-8c5c-378be2ef76d9" />
+
