@@ -10,6 +10,11 @@ pinned: false
 ---
 At Hugginface Spaces: https://selahf-stock-ticker-agent.hf.space/
 
+IN THE AGENT SANDBOX YOU CAN ASK NL QUESTIONS SUCH AS:
+
+        - Calculate the 30-day rolling annualized volatility of daily returns and plot the rolling volatility trend line for the given ticker.
+
+
 # Stock Ticker Agent
 
 FastAPI-based stock analytics agent powered by ChromaDB, SQLite, and SSE.
