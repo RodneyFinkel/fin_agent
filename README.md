@@ -8,6 +8,7 @@ sdk_version: 5.16.0
 app_file: app.py
 pinned: false
 ---
+At Hugginface Spaces: https://selahf-stock-ticker-agent.hf.space/
 
 # Stock Ticker Agent
 
