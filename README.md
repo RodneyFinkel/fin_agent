@@ -14,6 +14,7 @@ IN THE AGENT SANDBOX YOU CAN ASK NL QUESTIONS SUCH AS:
 
         - Calculate the 30-day rolling annualized volatility of daily returns and plot the rolling                    volatility trend line for the given ticker.
         - What is the latest RSI and MA structure for the given ticker?
+        - What is the correlation of RSI vs Returns, show charts use lagged features
 
 
 # Stock Ticker Agent
