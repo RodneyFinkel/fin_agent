@@ -21,6 +21,20 @@ IN THE AGENT SANDBOX YOU CAN ASK NL QUESTIONS SUCH AS:
 
 FastAPI-based stock analytics agent powered by ChromaDB, SQLite, and SSE.
 
+
+
+Hot Swappable Prompts for refining technical analysis   
+<img width="995" height="968" alt="fin_agent_final" src="https://github.com/user-attachments/assets/a150d59a-ab73-43e7-8f20-7cb475d5d7c2" />
+
+
+
+Deterministic Technical Snapshot for LLM context and Schema layer
+<img width="792" height="966" alt="Screenshot 2026-08-10 at 16 17 51" src="https://github.com/user-attachments/assets/29c016eb-6828-43c1-baf4-7aee51254598" />
+Generated Code with streamed sandbox execution and research synthesis. Evaluation Harness in development
+<img width="1050" height="966" alt="Screenshot 2026-09-03 at 14 18 15" src="https://github.com/user-attachments/assets/695dadfd-6238-4f01-b798-ceffdf01a985" />
+<img width="1434" height="598" alt="Screenshot 2026-09-03 at 14 19 07" src="https://github.com/user-attachments/assets/35217504-7559-4501-8c5c-378be2ef76d9" />
+
+
 # Stock Analytics Agent — Run Locally (Docker Desktop)
 
 This app runs on your computer with **Docker Desktop**. You do **not** need to install Python, Node, or any other developer tools.
@@ -86,15 +100,3 @@ You do not need to change any Docker settings for this app.
 
 
         - What is the latest RSI and MA structure for the given ticker?
-
-Hot Swappable Prompts for refining technical analysis   
-<img width="995" height="968" alt="fin_agent_final" src="https://github.com/user-attachments/assets/a150d59a-ab73-43e7-8f20-7cb475d5d7c2" />
-
-
-
-Deterministic Technical Snapshot for LLM context and Schema layer
-<img width="792" height="966" alt="Screenshot 2026-08-10 at 16 17 51" src="https://github.com/user-attachments/assets/29c016eb-6828-43c1-baf4-7aee51254598" />
-Generated Code with streamed sandbox execution and research synthesis. Evaluation Harness in development
-<img width="1050" height="966" alt="Screenshot 2026-09-03 at 14 18 15" src="https://github.com/user-attachments/assets/695dadfd-6238-4f01-b798-ceffdf01a985" />
-<img width="1434" height="598" alt="Screenshot 2026-09-03 at 14 19 07" src="https://github.com/user-attachments/assets/35217504-7559-4501-8c5c-378be2ef76d9" />
-
