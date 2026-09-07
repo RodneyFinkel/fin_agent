@@ -12,9 +12,17 @@ At Hugginface Spaces: https://selahf-stock-ticker-agent.hf.space/
 
 IN THE AGENT SANDBOX YOU CAN ASK NL QUESTIONS SUCH AS:
 
-        - Calculate the 30-day rolling annualized volatility of daily returns and plot the rolling                    volatility trend line for the given ticker.
+        - Calculate the 30-day rolling annualized volatility of daily returns and plot the rolling volatility trend line for the given ticker.
         - What is the latest RSI and MA structure for the given ticker?
-        - What is the correlation of RSI vs Returns, show charts use lagged features
+        - What is the correlation of RSI vs Returns, show charts use lagged features.
+        - The Sandbox Stress-Test Prompt
+                "Identify every instance where the stock experienced a 'Volatility Squeeze'—defined 
+                as Bollinger Band Width (upperBand - lowerBand) / ma20 dropping into its lowest 10th percentile 
+                over the preceding 60 trading days—while RSI was under 45. 
+                For each squeeze event, simulate entering a trade on the following day's open and exiting when either 
+                RSI crosses above 65 OR after 15 trading days (whichever occurs first). 
+                Calculate the total strategy win rate, average trade duration, 
+                cumulative return, and the worst single trade's maximum underwater drawdown during its holding window."
 
 
 # Stock Ticker Agent
