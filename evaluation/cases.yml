@@ -1,0 +1,50 @@
+# High-signal golden cases for regression testing.
+# Keep this list small and meaningful.
+
+- id: skip_rsi
+  ticker: AAPL
+  query: "What is the latest RSI and its regime?"
+  expect_router: skip
+  description: "Should be answerable from the deterministic picture alone"
+
+- id: skip_ma_structure
+  ticker: AAPL
+  query: "Describe the current moving average structure"
+  expect_router: skip
+  description: "Deterministic MA alignment question"
+
+- id: corr_rsi_returns
+  ticker: AAPL
+  query: "Calculate the correlation between RSI and daily returns and show a chart"
+  expect_router: code
+  require_n_obs: true
+  description: "Classic relationship question that must generate code"
+
+- id: max_drawdown_2023
+  ticker: AAPL
+  query: "What was the maximum drawdown since 2023 and on which date did it bottom?"
+  expect_router: code
+  require_date: true
+  description: "Requires historical calculation + correct date extraction"
+
+- id: rolling_vol_30d
+  ticker: AAPL
+  query: "Calculate the 30-day rolling annualized volatility of daily returns"
+  expect_router: code
+  require_n_obs: true
+  description: "Rolling window statistic"
+
+- id: rsi_next_day_return
+  ticker: AAPL
+  query: "What is the correlation between RSI and the next-day return?"
+  expect_router: code
+  require_n_obs: true
+  prefer_lagged: true
+  description: "Tests whether the model prefers lagged relationships"
+
+- id: volatility squeeze
+  ticker: AAPL
+  query: "Identify every instance where the stock experienced a 'Volatility Squeeze'—defined as Bollinger Band Width (upperBand - lowerBand) / ma20 dropping into its lowest 10th percentile over the preceding 60 trading days—while RSI was under 45. For each squeeze event, simulate entering a trade on the following day's open and exiting when either RSI crosses above 65 OR after 15 trading days (whichever occurs first). Calculate the total strategy win rate, average trade duration, cumulative return, and the worst single trade's maximum underwater drawdown during its holding window."
+  expect_router: code
+  require_n_obs: true
+  description: "Tests whether the model can handle complex multi-step instructions and generate code that performs the required calculations and simulations."
