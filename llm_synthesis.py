@@ -9,6 +9,7 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 from sandbox_engine import SandboxOutputSchema
+from prompt_manager import prompt_manager
 
 load_dotenv()
 logger = logging.getLogger("AnalysisService")
@@ -79,26 +80,19 @@ class LLM_Synthesis:
 
         # Convert dict to formatted JSON string for clean LLM ingestion
         formatted_picture = json.dumps(picture, indent=2) if picture else "N/A"
+        synthesis_template = prompt_manager.get("synthesis_system")
 
-        system_instruction = f"""You are an expert Quantitative Analyst AI. 
-        You are analyzing {ticker} based strictly on the provided technical indicators, custom Python sandbox execution output, and recent fundamental news.
-        Answer the user's question directly, clearly, and concisely. 
+        system_instruction = synthesis_template.format(ticker=ticker) + f"""
 
-        CRITICAL GROUND TRUTH RULE: 
-        The "SANDBOX EXECUTION OUTPUT" section below contains the exact results computed from the database. 
-        Treat these results as absolute ground truth. If the sandbox output provides a calculated value, date, 
-        or metric, you MUST use it directly. 
-        Never claim that data is missing or unavailable if it is present in the sandbox execution output.
+            --- DETERMINISTIC TECHNICAL SNAPSHOT ---
+            {formatted_picture}
 
-        --- DETERMINISTIC TECHNICAL SNAPSHOT ---
-        {formatted_picture}
+            --- SANDBOX EXECUTION OUTPUT ---
+            {code_output}
 
-        --- SANDBOX EXECUTION OUTPUT ---
-        {code_output}
-
-        --- LATEST FUNDAMENTAL NEWS ---
-        {research_summary}
-        """
+            --- LATEST FUNDAMENTAL NEWS ---
+            {research_summary}
+            """
 
         # Construct message objects directly to avoid prompt template variable parsing
         messages = [
@@ -129,42 +123,32 @@ class LLM_Synthesis:
         """
         picture_json = json.dumps(picture, indent=2) if picture else "N/A"
         research = research_summary or "No research context"
-        
+        router_system = prompt_manager.get("router_system")
+        code_system = prompt_manager.get("code_generation_system")        
         
         decide_prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    """You are an elite AI Quantitative Routing Agent.
+        [
+            (
+                "system",
+                router_system
+                + """
 
-                    You receive:
-                    1. A PROGRAMMATIC SCHEMA of the pre-loaded Pandas DataFrame named `df`
-                    (columns, dtypes, nulls, numeric stats, date range, sample rows).
-                    2. A deterministic technical snapshot (RSI, MAs, Bollinger, returns).
-                    3. Optional research summary.
-                    4. The user query.
+            --- DATAFRAME SCHEMA ---
+            {schema_block}
 
-                    RULES:
-                    - If the query can be answered from the Deterministic Picture alone → action = "skip".
-                    - If it needs historical rolling windows, custom math, volatility, drawdowns,
-                    custom filters, or any time-series calculation not already in the picture → action = "code".
-                   
-                    --- DATAFRAME SCHEMA ---
-                    {schema_block}
+            --- DETERMINISTIC TECHNICAL SNAPSHOT ---
+            {picture_json}
 
-                    --- DETERMINISTIC TECHNICAL SNAPSHOT ---
-                    {picture_json}
-
-                    --- RESEARCH SUMMARY (may be empty) ---
-                    {research_summary}
-                    """,
-                ),
-                (
-                    "user",
-                    "Ticker: {ticker}\nUser Query: {prompt}",
-                ),
-            ]
-        )
+            --- RESEARCH SUMMARY (may be empty) ---
+            {research_summary}
+            """,
+            ),
+            (
+                "user",
+                "Ticker: {ticker}\nUser Query: {prompt}",
+            ),
+        ]
+    )
         
         # Bind the Pydantic schema so the LLM must return a structured object
         decide_chain = decide_prompt | self.llm.with_structured_output(RouteOnlyDecision)
@@ -188,37 +172,23 @@ class LLM_Synthesis:
             return "SKIP_EXECUTION"
         
         # ── Phase 2: Generate the script ──────────────────────────────────
-        code_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert Python quant developer.
+        code_prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                code_system
+                + """
 
-                Write a COMPLETE, executable Python script that answers the user query
-                using the pre-loaded Pandas DataFrame named `df`.
+            --- DATAFRAME SCHEMA ---
+            {schema_block}
 
-                HARD CONTRACTS:
-                1. `df` already exists and has a datetime column named `time`.
-                2. Final answer MUST be assigned to a variable named `result` using:
-                    result = SandboxOutputSchema(
-                        primary_finding="one concise sentence",
-                        metrics={{...}},   # short scalars / ISO dates only
-                        success=True
-                    )
-                3. NEVER put a full Series or long DataFrame into metrics.
-                4. When finding the date of a max/min:
-                    idx = series.idxmax()
-                    max_date = str(df.loc[idx, 'time'])
-                Never return a raw integer index.
-                5. If a plot is requested, use matplotlib (plt). The sandbox captures the figure.
-                6. Output ONLY the Python code inside the structured field. No markdown fences.
+            --- USER QUERY ---
+            {prompt}
 
-                --- DATAFRAME SCHEMA ---
-                {schema_block}
-
-                --- USER QUERY ---
-                {prompt}
-
-                --- ROUTER REASONING (why code is needed) ---
-                {reasoning}
-                """),
+            --- ROUTER REASONING (why code is needed) ---
+            {reasoning}
+            """,
+            ),
                             ("user", "Ticker: {ticker}\nGenerate the full Python script now."),
                         ])
         
