@@ -142,12 +142,15 @@ class MarketDataPipelineTool:
         
         return prices.dropna()
 
-    def run(self, tickers: list[str], parquet_path: str = "stock_cache.parquet", sqlite_path: str = "stock_database.db") -> str:
+    def run(self, tickers: list[str], parquet_path: str = "stock_cache.parquet", sqlite_path: str = "stock_database.db", force_refresh: bool =False) -> str:
         
         # 1. Check which tickers we already have
-        cached_tickers = self._check_cached_tickers(sqlite_path, tickers)
-        tickers_to_fetch = [t.upper() for t in tickers if t.upper() not in cached_tickers]
-        
+        if force_refresh:
+            tickers_to_fetch = [t.upper() for t in tickers]
+        else:
+            cached_tickers = self._check_cached_tickers(sqlite_path, tickers)
+            tickers_to_fetch = [t.upper() for t in tickers if t.upper() not in cached_tickers]
+
         if not tickers_to_fetch:
             return f"Pipeline skipped API requests: All requested tickers ({tickers}) are already cached in the database."
 
@@ -185,6 +188,10 @@ class MarketDataPipelineTool:
         # Append to Parquet
         if os.path.exists(parquet_path):
             existing_parquet = pd.read_parquet(parquet_path)
+            if force_refresh and "Ticker" in existing_parquet.columns:
+                exisiting_parquet = existing_parquet[
+                    ~existing_parquet["Ticker"].str.upper().isin(tickers_to_fetch)
+                ]
             master_df = pd.concat([existing_parquet, new_df], ignore_index=True)
         else:
             master_df = new_df
@@ -192,12 +199,19 @@ class MarketDataPipelineTool:
         
         # Append to SQLite
         conn = sqlite3.connect(sqlite_path)
+        if force_refresh:
+            for t in tickers_to_fetch:
+                conn.execute(
+                    "DELETE FROM stock_metrics WHERE UPPER(Ticker) = UPPER(?)",
+                    (t,)
+                )
+            conn.commit()    
         new_df.to_sql("stock_metrics", conn, if_exists="append", index=False)
         conn.close()
 
         return (
             f"Pipeline successfully completed. "
-            f"Fetched {len(tickers_to_fetch)} new tickers: {tickers_to_fetch}. "
+            f"{'Force-refreshed' if force_refresh else 'Fetched'} {len(tickers_to_fetch)} tickers: {tickers_to_fetch}."
             f"Added {len(new_df)} new rows. "
             f"Databases '{parquet_path}' and '{sqlite_path}' are fully synced."
         )

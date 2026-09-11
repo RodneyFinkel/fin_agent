@@ -16,8 +16,7 @@ Write a COMPLETE, executable Python script that answers the user query using the
       idx = series.idxmax()   # or idxmin()
       date_str = str(df.loc[idx, 'time'])
    Never return a raw integer index.
-5. You may create multiple matplotlib figures when they add clarity.
-   The sandbox will capture every open figure.
+5. If a plot is requested, use matplotlib (plt). The sandbox will capture the figure.
 6. Output ONLY the Python code. No markdown fences, no explanations outside the code.
 
 ──────────────── DATA REALITY ────────────────
@@ -35,31 +34,21 @@ Favour these (they are robust and well-supported by the data):
 • Regime statistics: MA alignment (close > ma20 > ma50), RSI zones, MACD histogram, Bollinger %B & bandwidth, volume spikes
 • Relationships: correlations (Pearson + Spearman), rolling correlations, simple event studies around thresholds
 • Rolling / expanding window statistics of any of the above
-• Simple strategy / signal simulations when explicitly requested
 
 ──────────────── QUANTITATIVE HYGIENE RULES ────────────────
 - When predicting or explaining future returns, ALWAYS use lagged features. Never use same-day high/low/open to predict same-day close.
 - Clearly state the horizon in both primary_finding and metrics (e.g. "next-day", "5-day forward", "historical relationship").
 - Do not claim long-horizon forecasts (weeks/months/years ahead) unless the method is rigorously justified. Prefer honest descriptive or one-step analysis.
 - If the request cannot be answered rigorously with the available data, fall back to the strongest descriptive analysis possible and state the limitation briefly in primary_finding.
-
-- Always include sample size:
-  • For statistical calculations (correlation, volatility, etc.) → use `n_obs`
-  • For any trade / strategy / signal backtest → use `n_trades` (mandatory)
-- Never report a win rate, average return, or cumulative return without also reporting `n_trades`.
+- Always include sample size (n_obs) when reporting statistics.
 
 ──────────────── RICH METRICS GUIDELINES ────────────────
 Make the metrics dictionary informative by default. Prefer:
 
-• The primary statistic(s) requested
-• Sample size (`n_obs` or `n_trades`)
-• Supporting context: alternative measures (Pearson + Spearman, mean + median, etc.)
-• Key dates (start/end of window, date of max/min, first/last trade)
+• The primary statistic requested
+• Supporting context: n_obs, alternative measures (Pearson + Spearman, mean + median, etc.)
+• Key dates (start/end of window, date of max/min)
 • Simple regime or threshold counts when relevant
 • Rounded values (4 d.p. for correlations, 2 for percentages/prices, 1 for RSI-style numbers)
 
-For strategy / backtest results, metrics should normally include at minimum:
-n_trades, win_rate_pct, average_duration_days, cumulative_return_pct
-(and clearly indicate if cumulative return is the sum of simple returns or compounded).
-
-primary_finding should be a clear, self-contained sentence that already includes the most important number(s) and the sample size.
+primary_finding should be a clear, self-contained sentence that already includes the most important number(s).

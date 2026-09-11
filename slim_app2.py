@@ -62,6 +62,14 @@ def add_ticker(payload: dict):
     message = stock_service.add_ticker(ticker)
     return {"status": "success", "message": message}
 
+@app.post("/api/ticker/refresh")
+def refresh_ticker(payload: dict):
+    ticker = payload.get("ticker", "").strip().upper()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="Ticker symbol is required.")
+    message = stock_service.refresh_ticker(ticker)
+    return {"status": "success", "message": message}
+
 
 
 #________NEW ENDPOINT WITH SANDBOX FOR CUSTOM CODE EXECUTION________
@@ -125,8 +133,18 @@ async def analyze(payload: dict):
                 logging.info(f"--- SANDBOX DEBUG --- Success: {execution_res['success']} | Artifact: {execution_res.get('artifact_parquet')} | Error: {execution_res['error']}")
                 
                 # Stream custom charts if generated
-                if execution_res.get("chart"):
-                    yield f"data: {json.dumps({'type': 'charts', 'charts': [execution_res['chart']]})}\n\n"
+                # if execution_res.get("chart"):
+                #     yield f"data: {json.dumps({'type': 'charts', 'charts': [execution_res['chart']]})}\n\n"
+                    
+                    
+                # Stream all custom charts if generated
+                charts = execution_res.get("charts") or []
+                if not charts and execution_res.get("chart"):
+                    # fallback for old single-chart path
+                    charts = [execution_res["chart"]]
+
+                if charts:
+                    yield f"data: {json.dumps({'type': 'charts', 'charts': charts})}\n\n"
 
                 ###NEW
                 if execution_res["success"]:
@@ -252,5 +270,8 @@ async def update_prompt(name: str, payload: dict):
     return {"status": "ok", "name": name}
 
 
+
+
 if __name__ == "__main__":
     uvicorn.run("slim_app2:app", host="127.0.0.1", port=8000, reload=False)
+    

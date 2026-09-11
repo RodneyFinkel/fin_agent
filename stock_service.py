@@ -86,3 +86,20 @@ class StockDataService:
             return result_msg
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+        
+    def refresh_ticker(self, ticker: str) -> str:
+        ticker = ticker.strip().upper()
+        if not ticker:
+            raise HTTPException(status_code=400, detail="Ticker symbol is required")
+        
+        try:
+            return self.pipeline_tool.run(
+                tickers=[ticker],
+                parquet_path=self.parquet_path,
+                sqlite_path=self.sqlite_path,
+                force_refresh=True,
+            )
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        

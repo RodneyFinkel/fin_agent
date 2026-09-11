@@ -15,6 +15,7 @@ matplotlib.use("Agg")  # Non-interactive backend for headless rendering
 import matplotlib.pyplot as plt
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
+import textwrap
 
 logger = logging.getLogger("CodeSandbox")
 
@@ -190,8 +191,8 @@ class CodeSandbox:
         """
         logging.info(f"Executing sandbox code for: {ticker}...")
        
-        # Clean up markdown code blocks if present in the LLM response
-        clean_code = code.replace("```python", "").replace("```", "").strip()
+        # Clean up markdown code blocks and normalize indentation margins using textwrap.dedent
+        clean_code = textwrap.dedent(code.replace("```python", "").replace("```", "")).strip()
         logging.info(f"Cleaned code for execution:\n{clean_code[:200]}...")  # Log first 200 chars
         # --- 1. GLOBALS FIX FOR LAMBDAS & SCOPES ---
         # Placing modules and classes here ensures lambdas, applied functions, 
@@ -251,23 +252,52 @@ class CodeSandbox:
             logging.info(f"Processing sandbox output for {ticker}...")
             
             # Capture generated Matplotlib figures if present
-            chart_base64 = None
-            if plt.get_fignums():
-                fig = plt.gcf()
-                buf = io.BytesIO()
-                fig.savefig(buf, format="png", dpi=120, bbox_inches="tight", facecolor="#1f2937")
-                buf.seek(0)
-                chart_base64 = f"data:image/png;base64,{base64.b64encode(buf.read()).decode('utf-8')}"
-                plt.close(fig)
+            # chart_base64 = None
+            # if plt.get_fignums():
+            #     fig = plt.gcf()
+            #     buf = io.BytesIO()
+            #     fig.savefig(buf, format="png", dpi=120, bbox_inches="tight", facecolor="#1f2937")
+            #     buf.seek(0)
+            #     chart_base64 = f"data:image/png;base64,{base64.b64encode(buf.read()).decode('utf-8')}"
+            #     plt.close(fig)
 
+            # return {
+            #     "success": True,
+            #     "output": output_payload,
+            #     #"output": stdout_str if stdout_str else str(result_val) if result_val is not None else "Code executed successfully.",
+            #     "chart": chart_base64,
+            #     "error": None,
+            #     "artifact_parquet": schema_obj.artifact_parquet,
+            # }
+            
+            # Capture ALL generated Matplotlib figures
+            charts_base64 = []
+            fig_nums = plt.get_fignums()
+
+            if fig_nums:
+                for num in fig_nums:
+                    fig = plt.figure(num)
+                    buf = io.BytesIO()
+                    fig.savefig(
+                        buf,
+                        format="png",
+                        dpi=120,
+                        bbox_inches="tight",
+                        facecolor="#1f2937"
+                    )
+                    buf.seek(0)
+                    chart_b64 = f"data:image/png;base64,{base64.b64encode(buf.read()).decode('utf-8')}"
+                    charts_base64.append(chart_b64)
+                    plt.close(fig)
+                    
             return {
                 "success": True,
                 "output": output_payload,
-                #"output": stdout_str if stdout_str else str(result_val) if result_val is not None else "Code executed successfully.",
-                "chart": chart_base64,
+                "chart": charts_base64[0] if charts_base64 else None,  # backward compatibility
+                "charts": charts_base64,                                # all figures
                 "error": None,
                 "artifact_parquet": schema_obj.artifact_parquet,
-            }
+            }   
 
         except Exception as e:
             tb = traceback.format_exc()
