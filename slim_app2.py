@@ -103,7 +103,11 @@ async def analyze(payload: dict):
 
         async def event_generator():
             # Initial progress update
-            yield f"data: {json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...*\\n\\n'})}\n\n"
+            #yield f"data: {json.dumps({'type': 'token', 'content': ' *Evaluating analytical state...*\\n\\n'})}\n\n"
+            yield "data: " + json.dumps({
+                "type": "token",
+                "content": " *Evaluating analytical state...*\n\n"
+            }) + "\n\n"
 
             # 2. Ask LLM to evaluate the picture vs the user's prompt
             router_response = await analysis_service.evaluate_and_generate_code(
@@ -119,13 +123,18 @@ async def analyze(payload: dict):
             # 3. Dynamic Routing: Check for the bypass keyword
             if "SKIP_EXECUTION" not in router_response:
             #if router_response and router_response != "SKIP_EXECUTION":
-                yield f"data: {json.dumps({'type': 'token', 'content': ' *Running custom quantitative sandbox analysis...*\\n\\n'})}\n\n"
-                
-                
+                yield "data: " + json.dumps({
+                    "type": "token",
+                    "content": " *Running custom quantitative sandbox analysis...*\n\n"
+                }) + "\n\n"
+
                 # ---> SHOW THE CODE IN THE UI <---
                 code_display = f"```python\n{router_response}\n```\n\n"
-                yield f"data: {json.dumps({'type': 'token', 'content': code_display})}\n\n"
-                
+                yield "data: " + json.dumps({
+                    "type": "token",
+                    "content": code_display
+                }) + "\n\n"
+
                 # Extract code and execute in sandbox
                 sandbox = CodeSandbox(timeout_seconds=8, persist_artifacts=True)
                 logging.info(f"Executing sandbox code for {ticker}...")
@@ -144,7 +153,10 @@ async def analyze(payload: dict):
                     charts = [execution_res["chart"]]
 
                 if charts:
-                    yield f"data: {json.dumps({'type': 'charts', 'charts': charts})}\n\n"
+                    yield "data: " + json.dumps({
+                        "type": "charts",
+                        "charts": charts
+                    }) + "\n\n"
 
                 ###NEW
                 if execution_res["success"]:
@@ -169,9 +181,14 @@ async def analyze(payload: dict):
                 code_output=code_context,
                 research_summary=research_summary
             ):
-                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+                yield "data: " + json.dumps({
+                    "type": "token",
+                    "content": token
+                }) + "\n\n"
 
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            yield "data: " + json.dumps({
+                "type": "done"
+            }) + "\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -241,7 +258,7 @@ async def stream_stock_data(ticker: str):
             item = await queue.get()
             if item is None:
                 break
-            yield f"data: {json.dumps(item)}\n\n"
+            yield "data: " + json.dumps(item) + "\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
