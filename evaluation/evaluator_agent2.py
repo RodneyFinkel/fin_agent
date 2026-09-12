@@ -102,14 +102,14 @@ CRITICAL REQUIREMENTS:
         except Exception as e:
             logger.error(f"Evaluator agent failed: {e} | Raw Output: {raw_content}")
             return {
-                "aggregate_score": 9.0,
+                "aggregate_score": 0.0,
                 "breakdown": {
-                    "prompt_relevance": 9.5,
-                    "code_correctness": 9.0,
-                    "narrative_consistency": 9.0,
-                    "execution_efficiency": 8.5
+                    "prompt_relevance": 0.0,
+                    "code_correctness": 0.0,
+                    "narrative_consistency": 0.0,
+                    "execution_efficiency": 0.0
                 },
                 "strengths": ["Pipeline executed successfully and generated accurate market synthesis."],
                 "deductions": [f"Parsing/Validation Error: {str(e)}"],
-                "verdict": "Pipeline successfully completed execution and synthesis."
+                "verdict": "Pipeline failed to execute properly."
             }
