@@ -7,6 +7,7 @@ import time
 from typing import AsyncGenerator, Dict, Any
 import pandas as pd
 
+from evaluation.evaluator_agent2 import LLMEvaluatorAgent
 from stock_service import StockDataService
 from llm_synthesis import LLM_Synthesis
 from schema_layer import build_df_schema, schema_to_prompt_block
@@ -158,6 +159,7 @@ class AnalysisOrchestrator:
             "message": "Streaming final narrative synthesis from LLM...",
         }
 
+        synthesis_text = ""
         async for token in self.analysis_service.generate_synthesis_stream(
             ticker=ticker,
             prompt=prompt,
@@ -165,7 +167,29 @@ class AnalysisOrchestrator:
             code_output=code_context,
             research_summary=research_summary,
         ):
+            synthesis_text += token  # Accumulate text for the evaluator
             yield {"type": "token", "content": token}
+            
+        # 5. LLM-as-a-Judge Evaluation
+        yield {
+            "type": "trace",
+            "phase": "EVALUATOR",
+            "message": "Dispatching run artifacts to LLM-as-a-Judge QA evaluator...",
+        }
+        
+        evaluator = LLMEvaluatorAgent()
+        evaluation_result = await evaluator.evaluate_run(
+            ticker=ticker,
+            prompt=prompt,
+            code=router_response if code_generated else "N/A (No code execution)",
+            sandbox_metrics=execution_res.get("metrics", {}) if code_generated else {},
+            synthesis_text=synthesis_text
+        )
+        
+        yield {
+            "type": "evaluation",
+            "content": evaluation_result
+        }
 
         total_time = time.perf_counter() - start_time
         yield {
@@ -287,6 +311,7 @@ if __name__ == "__main__":
 
             synthesis_text = ""
             metrics = None
+            spinner_active = True  # Flag to control spinner behavior
 
             with Status("[bold cyan]Initializing pipeline...", spinner="dots") as status:
                 async for event in orchestrator.run_analysis(ticker, prompt):
@@ -315,8 +340,10 @@ if __name__ == "__main__":
                         status.start()
 
                     elif event_type == "token":
-                        if status.start:
+                        # Use a boolean flag to stop the spinner only on the first token
+                        if spinner_active:
                             status.stop()
+                            spinner_active = False
                         content = event["content"]
                         synthesis_text += content
                         sys.stdout.write(content)
@@ -324,6 +351,25 @@ if __name__ == "__main__":
 
                     elif event_type == "metrics":
                         metrics = event
+                        
+                    elif event_type == "evaluation":
+                        eval_data = event["content"]
+                        score = eval_data.get("aggregate_score", 0)
+                        
+                        eval_table = Table(title=f"[bold cyan]🤖 LLM-as-a-Judge Evaluation Score: {score}/10[/bold cyan]", border_style="cyan")
+                        eval_table.add_column("Criterion", style="bold white")
+                        eval_table.add_column("Score", style="bold green")
+                        
+                        for crit, sc in eval_data.get("breakdown", {}).items():
+                            eval_table.add_row(crit.replace("_", " ").title(), f"{sc}/10")
+                            
+                        console.print(eval_table)
+                        
+                        if eval_data.get("deductions"):
+                            console.print("[bold red]Deductions / Flaws Found:[/bold red]")
+                            for deduction in eval_data["deductions"]:
+                                console.print(f"  • {deduction}")
+                        console.print(f"[bold italic]Verdict:[/bold italic] {eval_data.get('verdict')}\n")
 
             if metrics:
                 console.print("\n")
