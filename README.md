@@ -63,22 +63,7 @@ Users ask natural-language questions about a ticker. The system decides whether 
 
 ---
 
-## Tech Stack
 
-| Layer              | Technologies                                      |
-|--------------------|---------------------------------------------------|
-| Backend            | FastAPI, Uvicorn, Pydantic, Python 3.12           |
-| Data               | Pandas, NumPy, SQLite, Parquet (PyArrow)          |
-| Market data        | Yahoo Finance chart API via `curl_cffi`           |
-| Technical analysis | Custom indicators (MA, RSI, MACD, Bollinger)      |
-| LLM                | Groq (`langchain-groq`), structured output        |
-| Research / RAG     | DuckDuckGo, BeautifulSoup, SentenceTransformers, ChromaDB |
-| Charts             | Matplotlib (server-side), Lightweight Charts (frontend) |
-| Frontend           | Alpine.js, Tailwind CSS, single-page HTML         |
-| Packaging          | Docker, Docker Compose                            |
-| Deployment         | Hugging Face Spaces                               |
-
----
 
 ## Example Queries
 
