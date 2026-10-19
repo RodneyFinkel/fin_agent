@@ -1,13 +1,44 @@
----
-title: Stock Ticker Agent
-emoji: 📈
-colorFrom: blue
-colorTo: green
-sdk: gradio
-sdk_version: 5.16.0
-app_file: app.py
-pinned: false
----
+┌─────────────────┐     ┌──────────────────┐     ┌────────────────────┐
+│  User Prompt    │────▶│  Schema Layer    │────▶│  LLM Router        │
+│  + Ticker       │     │  (DataFrame      │     │  (skip vs code)    │
+└─────────────────┘     │   introspection) │     └─────────┬──────────┘
+                        └──────────────────┘               │
+                                                           │
+                     ┌─────────────────────────────────────┼─────────────────────────┐
+                     │                                     ▼                         │
+                     │                          ┌────────────────────┐                │
+                     │                          │  Code Generation   │                │
+                     │                          │  (structured out)  │                │
+                     │                          └─────────┬──────────┘                │
+                     │                                    │                          │
+                     │                                    ▼                          │
+┌────────────────┐   │                          ┌────────────────────┐   ┌──────────┴─────────┐
+│ Market Data    │───┼─────────────────────────▶│  Code Sandbox      │   │ Research Agent    │
+│ Pipeline       │   │                          │  (Pandas + Matplotlib)│  │ (web search +     │
+│ (Yahoo → SQLite│   │                          └─────────┬──────────┘   │  embeddings +     │
+│  + Parquet)    │   │                                    │              │  ChromaDB)        │
+└────────────────┘   │                                    ▼              └──────────┬─────────┘
+                     │                          ┌────────────────────┐              │
+                     │                          │ Deterministic      │              │
+                     │                          │ Technical Picture  │              │
+                     │                          │ (RSI, MAs, BB...)  │              │
+                     │                          └─────────┬──────────┘              │
+                     │                                    │                          │
+                     │                                    ▼                          │
+                     │                          ┌────────────────────┐              │
+                     │                          │  LLM Synthesis     │◀─────────────┘
+                     │                          │  (streamed narrative)│
+                     │                          └─────────┬──────────┘
+                     │                                    │
+                     │                                    ▼
+                     │                          ┌────────────────────┐
+                     │                          │  LLM-as-Judge      │
+                     │                          │  Evaluation        │
+                     └──────────────────────────┴────────────────────┘
+
+
+
+                     
 At Hugginface Spaces: https://selahf-stock-ticker-agent.hf.space/
 
 IN THE AGENT SANDBOX YOU CAN ASK NL QUESTIONS SUCH AS:
