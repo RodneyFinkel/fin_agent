@@ -1,13 +1,9 @@
 ---
-title: {{title}}
-emoji: {{emoji}}
-colorFrom: {{colorFrom}}
-colorTo: {{colorTo}}
-sdk: {{sdk}}
-sdk_version: "{{sdkVersion}}"
-{{#pythonVersion}}
-python_version: "{{pythonVersion}}"
-{{/pythonVersion}}
+title: Stock Ticker Agent
+emoji: 📈
+colorFrom: blue
+colorTo: green
+sdk: gradio
 app_file: app.py
 pinned: false
 ---
